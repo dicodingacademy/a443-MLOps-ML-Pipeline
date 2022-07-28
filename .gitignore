@@ -5,7 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
-/Pipelines
+/pipelines
+/serving_model_dir
 
 # Distribution / packaging
 .Python
