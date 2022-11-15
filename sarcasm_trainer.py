@@ -36,16 +36,26 @@ def input_fn(file_pattern,
         label_key = transformed_name(LABEL_KEY))
     return dataset
 
-os.environ['TFHUB_CACHE_DIR'] = '/hub_chace'
-embed = hub.KerasLayer("https://tfhub.dev/google/universal-sentence-encoder/4")
+# os.environ['TFHUB_CACHE_DIR'] = '/hub_chace'
+# embed = hub.KerasLayer("https://tfhub.dev/google/universal-sentence-encoder/4")
 
+# Vocabulary size and number of words in a sequence.
+VOCAB_SIZE = 10000
+SEQUENCE_LENGTH = 100
+
+vectorize_layer = layers.TextVectorization(
+    standardize="lower_and_strip_punctuation",
+    max_tokens=VOCAB_SIZE,
+    output_mode='int',
+    output_sequence_length=SEQUENCE_LENGTH)
+
+embedding_dim=16
 def model_builder():
     """Build machine learning model"""
-    
     inputs = tf.keras.Input(shape=(1,), name=transformed_name(FEATURE_KEY), dtype=tf.string)
     reshaped_narrative = tf.reshape(inputs, [-1])
-    x = embed(reshaped_narrative)
-    x = tf.keras.layers.Reshape((1,512), input_shape=(1,512))(x)
+    x = vectorize_layer(reshaped_narrative)
+    x = layers.Embedding(VOCAB_SIZE, embedding_dim, name="embedding")(x)
     x = layers.GlobalAveragePooling1D()(x)
     x = layers.Dense(64, activation='relu')(x)
     x = layers.Dense(32, activation="relu")(x)
@@ -104,7 +114,10 @@ def run_fn(fn_args: FnArgs) -> None:
     # Create batches of data
     train_set = input_fn(fn_args.train_files, tf_transform_output, 10)
     val_set = input_fn(fn_args.eval_files, tf_transform_output, 10)
-    
+    vectorize_layer.adapt(
+        [j[0].numpy()[0] for j in [
+            i[0][transformed_name(FEATURE_KEY)]
+                for i in list(train_set)]])
     
     # Build the model
     model = model_builder()
